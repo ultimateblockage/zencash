@@ -1190,7 +1190,7 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
 
     return ss.GetHash();
 
-    //TODO we need this if we want todo a softfork, if we remove this its an HF
+    //TODO we need this to validate the older tx or the non upgraded node, we need to introduce a tx type
 
 /*
     // Check for invalid use of SIGHASH_SINGLE
