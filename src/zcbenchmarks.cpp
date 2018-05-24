@@ -273,6 +273,8 @@ double benchmark_large_tx()
     struct timeval tv_start;
     timer_start(tv_start);
     PrecomputedTransactionData txdata(final_spending_tx);
+    //CScript script;
+    //PrecomputedTransactionData txdata(script, final_spending_tx,final_spending_tx.vin.size(),SIGHASH_ALL  );
     for (size_t i = 0; i < NUM_INPUTS; i++) {
         ScriptError serror = SCRIPT_ERR_OK;
         assert(VerifyScript(final_spending_tx.vin[i].scriptSig,

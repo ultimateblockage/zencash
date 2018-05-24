@@ -101,8 +101,10 @@ enum
 struct PrecomputedTransactionData
 {
     uint256 hashPrevouts, hashSequence, hashOutputs;
+    uint256 hashTx;
 
     PrecomputedTransactionData(const CTransaction& tx);
+    PrecomputedTransactionData(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
 };
 
 // ZEN_MOD_START

@@ -1131,6 +1131,15 @@ uint256 GetOutputsHash(const CTransaction& txTo) {
     return ss.GetHash();
 }
 
+// using this for the current standard zen tx
+uint256 GetTxHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType) {
+    CHashWriter ss(SER_GETHASH, 0);
+    CTransactionSignatureSerializer txTmp(txTo, scriptCode, nIn, nHashType);
+    ss << txTmp << nHashType;
+    return ss.GetHash();
+}
+
+
 } // anon namespace
 
 
@@ -1141,12 +1150,21 @@ PrecomputedTransactionData::PrecomputedTransactionData(const CTransaction& txTo)
     hashOutputs = GetOutputsHash(txTo);
 }
 
+PrecomputedTransactionData::PrecomputedTransactionData(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
+{
+    hashTx = GetTxHash(scriptCode, txTo, nIn, nHashType);
+}
+
+
 uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const PrecomputedTransactionData* cache)
 {
     if (nIn >= txTo.vin.size() && nIn != NOT_AN_INPUT) {
         //  nIn out of range
         throw logic_error("input index is out of range");
     }
+
+    /*
+    // for a new type of tx
 
     uint256 hashPrevouts;
     uint256 hashSequence;
@@ -1189,10 +1207,8 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
     ss << nHashType;
 
     return ss.GetHash();
+    */
 
-    //TODO we need this to validate the older tx or the non upgraded node, we need to introduce a tx type
-
-/*
     // Check for invalid use of SIGHASH_SINGLE
     if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
         if (nIn >= txTo.vout.size()) {
@@ -1201,13 +1217,21 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
         }
     }
 
+    uint256 hashTx;
 
+    hashTx = cache ? cache->hashTx : GetTxHash(scriptCode, txTo, nIn, nHashType);
+
+    //LogPrintf(" hashTx: %s  hashtype: %d \n", hashTx.ToString(), nHashType);
+
+    return hashTx; // GetTxHash(scriptCode, txTo, nIn, nHashType);
+
+    /*
     // Wrapper to serialize only the necessary parts of the transaction being signed
     CTransactionSignatureSerializer txTmp(txTo, scriptCode, nIn, nHashType);
-
     // Serialize and hash
     CHashWriter ss(SER_GETHASH, 0);
     ss << txTmp << nHashType;
+    LogPrintf(" ss gethash: %s \n", ss.GetHash().ToString());
     return ss.GetHash();
     */
 }
