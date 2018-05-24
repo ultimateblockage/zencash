@@ -90,8 +90,9 @@ public:
  */
 class CTxMemPool
 {
-private:
-    bool fSanityCheck; //! Normally false, true if -checkmempool or -regtest
+private:    
+    // bool fSanityCheck; //! Normally false, true if -checkmempool or -regtest
+    uint32_t nCheckFrequency; //! Value n means that n times in 2^32 we check.
     unsigned int nTransactionsUpdated;
     CBlockPolicyEstimator* minerPolicyEstimator;
 
@@ -115,7 +116,8 @@ public:
      * check does nothing.
      */
     void check(const CCoinsViewCache *pcoins) const;
-    void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
+    void setSanityCheck(double dFrequency = 1.0) { nCheckFrequency = dFrequency * 4294967296.0; }
+    // void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     void remove(const CTransaction &tx, std::list<CTransaction>& removed, bool fRecursive = false);

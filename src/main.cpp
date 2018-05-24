@@ -1277,7 +1277,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
 // ZEN_MOD_START
-        if (!ContextualCheckInputs(tx, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        PrecomputedTransactionData txdata(tx);
+        if (!ContextualCheckInputs(tx, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus()))
 // ZEN_MOD_END
         {
             return error("AcceptToMemoryPool: ConnectInputs failed %s", hash.ToString());
@@ -1293,7 +1294,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
 // ZEN_MOD_START
-        if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus()))
 // ZEN_MOD_END
         {
             return error("AcceptToMemoryPool: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", hash.ToString());
@@ -1669,7 +1670,7 @@ void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCach
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
 // ZEN_MOD_START
-    if (!VerifyScript(scriptSig, scriptPubKey, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, chain, cacheStore), &error)) {
+    if (!VerifyScript(scriptSig, scriptPubKey, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, chain, cacheStore, *txdata), &error)) {
 // ZEN_MOD_END
         return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
     }
@@ -1779,7 +1780,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 }// namespace Consensus
 
 // ZEN_MOD_START
-bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
+bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
 // ZEN_MOD_END
 {
     if (!tx.IsCoinBase())
@@ -1806,7 +1807,7 @@ bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, cons
 
                 // Verify signature
 // ZEN_MOD_START
-                CScriptCheck check(*coins, tx, i, &chain, flags, cacheStore);
+                CScriptCheck check(*coins, tx, i, &chain, flags, cacheStore, &txdata);
 // ZEN_MOD_END
                 if (pvChecks) {
                     pvChecks->push_back(CScriptCheck());
@@ -1826,7 +1827,7 @@ bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, cons
                         // non-upgraded nodes.
 // ZEN_MOD_START
                         CScriptCheck check(*coins, tx, i, &chain,
-                                flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
+                                flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore, &txdata);
 // ZEN_MOD_END
                         if (check())
                             return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
@@ -2273,6 +2274,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         assert(tree.root() == old_tree_root);
     }
 
+    std::vector<PrecomputedTransactionData> txdata;
+    txdata.reserve(block.vtx.size());
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
         const CTransaction &tx = block.vtx[i];
@@ -2302,11 +2305,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
 
-            nFees += view.GetValueIn(tx)-tx.GetValueOut();
+        }
 
+        txdata.emplace_back(tx);
+
+        if (!tx.IsCoinBase())
+        {
+            nFees += view.GetValueIn(tx)-tx.GetValueOut();
             std::vector<CScriptCheck> vChecks;
 // ZEN_MOD_START
-            if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
+            if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, txdata[i], chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
 // ZEN_MOD_END
                 return false;
             control.Add(vChecks);

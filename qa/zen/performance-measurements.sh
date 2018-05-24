@@ -22,6 +22,11 @@ function zcash_rpc_veryslow {
 }
 # ZEN_MOD_END
 
+function zcash_rpc_wait_for_start {
+    zcash_rpc -rpcwait getinfo > /dev/null
+}
+
+
 function zcashd_generate {
     zcash_rpc generate 101 > /dev/null
 }

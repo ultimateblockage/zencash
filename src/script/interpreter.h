@@ -98,11 +98,18 @@ enum
 // ZEN_MOD_END
 };
 
+struct PrecomputedTransactionData
+{
+    uint256 hashPrevouts, hashSequence, hashOutputs;
+
+    PrecomputedTransactionData(const CTransaction& tx);
+};
+
 // ZEN_MOD_START
 static const unsigned int CONTEXTUAL_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
 // ZEN_MOD_END
 
-uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
+uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const PrecomputedTransactionData* cache = NULL);
 
 class BaseSignatureChecker
 {
@@ -134,14 +141,16 @@ private:
     unsigned int nIn;
 // ZEN_MOD_START
     const CChain* chain;
+    const PrecomputedTransactionData* txdata;
 // ZEN_MOD_END
 
 protected:
     virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 
 public:
-// ZEN_MOD_START
-    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn) : txTo(txToIn), nIn(nInIn), chain(chainIn) {}
+// ZEN_MOD_START        
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn) : txTo(txToIn), nIn(nInIn), chain(chainIn), txdata(NULL) {}
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn, const PrecomputedTransactionData& txdataIn) : txTo(txToIn), nIn(nInIn), chain(chainIn), txdata(&txdataIn) {}
 // ZEN_MOD_END
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const;
     bool CheckLockTime(const CScriptNum& nLockTime) const;

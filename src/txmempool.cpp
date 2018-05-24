@@ -57,7 +57,8 @@ CTxMemPool::CTxMemPool(const CFeeRate& _minRelayFee) :
     // Sanity checks off by default for performance, because otherwise
     // accepting transactions becomes O(N^2) where N is the number
     // of transactions in the pool
-    fSanityCheck = false;
+    // fSanityCheck = false;
+    nCheckFrequency = 0;
 
     minerPolicyEstimator = new CBlockPolicyEstimator(_minRelayFee);
 }
@@ -181,7 +182,7 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
             if (it2 != mapTx.end())
                 continue;
             const CCoins *coins = pcoins->AccessCoins(txin.prevout.hash);
-            if (fSanityCheck) assert(coins);
+            // if (fSanityCheck) assert(coins);
             if (!coins || (coins->IsCoinBase() && ((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY)) {
                 transactionsToRemove.push_back(tx);
                 break;
@@ -287,8 +288,16 @@ void CTxMemPool::clear()
 
 void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 {
+    /*
     if (!fSanityCheck)
         return;
+    */
+    if (nCheckFrequency == 0)
+        return;
+
+    if (insecure_rand() >= nCheckFrequency)
+        return;
+
 
     LogPrint("mempool", "Checking mempool with %u transactions and %u inputs\n", (unsigned int)mapTx.size(), (unsigned int)mapNextTx.size());
 
@@ -296,6 +305,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     uint64_t innerUsage = 0;
 
     CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(pcoins));
+    const int64_t nSpendHeight = GetSpendHeight(mempoolDuplicate);
 
     LOCK(cs);
     list<const CTxMemPoolEntry*> waitingOnDependants;
@@ -351,8 +361,11 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         else {
             CValidationState state;
 // ZEN_MOD_START
-            assert(ContextualCheckInputs(tx, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            bool fCheckResult = tx.IsCoinBase() ||
+                    Consensus::CheckTxInputs(tx, state, mempoolDuplicate, nSpendHeight, Params().GetConsensus());
+            // assert(ContextualCheckInputs(tx, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
 // ZEN_MOD_END
+            assert(fCheckResult);
             UpdateCoins(tx, state, mempoolDuplicate, 1000000);
         }
     }
@@ -367,7 +380,11 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(stepsSinceLastRemove < waitingOnDependants.size());
         } else {
 // ZEN_MOD_START
-            assert(ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            bool fCheckResult = entry->GetTx().IsCoinBase() ||
+                    Consensus::CheckTxInputs(entry->GetTx(), state, mempoolDuplicate, nSpendHeight, Params().GetConsensus());
+            assert(fCheckResult);
+
+            // assert(ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
 // ZEN_MOD_END
             UpdateCoins(entry->GetTx(), state, mempoolDuplicate, 1000000);
             stepsSinceLastRemove = 0;

@@ -147,6 +147,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, verifier), strTest + comment);
             BOOST_CHECK_MESSAGE(state.IsValid(), comment);
 
+            PrecomputedTransactionData txdata(tx);
             for (unsigned int i = 0; i < tx.vin.size(); i++)
             {
                 if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
@@ -158,7 +159,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
                 BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
 // ZEN_MOD_START
-                                                 verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err),
+                                                 verify_flags, TransactionSignatureChecker(&tx, i, nullptr, txdata), &err),
                                     strTest);
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 // ZEN_MOD_END
@@ -232,6 +233,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             CValidationState state;
             fValid = CheckTransaction(tx, state, verifier) && state.IsValid();
 
+            PrecomputedTransactionData txdata(tx);
             for (unsigned int i = 0; i < tx.vin.size() && fValid; i++)
             {
                 if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
@@ -243,7 +245,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
                 fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
 // ZEN_MOD_START
-                        verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err);
+                        verify_flags, TransactionSignatureChecker(&tx, i, nullptr, txdata), &err);
 // ZEN_MOD_END
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest + comment);

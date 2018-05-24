@@ -272,13 +272,14 @@ double benchmark_large_tx()
     // Benchmark signature verification costs:
     struct timeval tv_start;
     timer_start(tv_start);
+    PrecomputedTransactionData txdata(final_spending_tx);
     for (size_t i = 0; i < NUM_INPUTS; i++) {
         ScriptError serror = SCRIPT_ERR_OK;
         assert(VerifyScript(final_spending_tx.vin[i].scriptSig,
                             prevPubKey,
 // ZEN_MOD_START
                             STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
-                            TransactionSignatureChecker(&final_spending_tx, i, nullptr),
+                            TransactionSignatureChecker(&final_spending_tx, i, nullptr, txdata),
 // ZEN_MOD_END
                             &serror));
     }

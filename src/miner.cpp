@@ -308,7 +308,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             // create only contains transactions that are valid in new blocks.
             CValidationState state;
 // ZEN_MOD_START
-            if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+            PrecomputedTransactionData txdata(tx);
+            if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, txdata, Params().GetConsensus()))
 // ZEN_MOD_END
                 continue;
 
